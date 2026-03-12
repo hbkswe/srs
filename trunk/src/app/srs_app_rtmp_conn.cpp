@@ -488,6 +488,13 @@ srs_error_t SrsRtmpConn::service_cycle()
     return err;
 }
 
+/*
+  learn-henry : product behavior obj - entry point for the action of grab-and-share
+    1. accept connection context
+    2. parse RTMP commands
+    3. quyết định publish / play
+    4. chuyển trạng thái session
+ */
 srs_error_t SrsRtmpConn::stream_service_cycle()
 {
     srs_error_t err = srs_success;
@@ -575,6 +582,7 @@ srs_error_t SrsRtmpConn::stream_service_cycle()
 
     // find a source to serve.
     SrsSharedPtr<SrsLiveSource> live_source;
+    // learn-henry : live source - Conn creates Source
     if ((err = live_sources_->fetch_or_create(req, live_source)) != srs_success) {
         return srs_error_wrap(err, "rtmp: fetch source");
     }

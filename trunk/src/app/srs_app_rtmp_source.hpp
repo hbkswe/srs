@@ -661,6 +661,9 @@ public:
 };
 
 // The live streaming source.
+ /*
+  learn-henry : share live source, the heart of the business, the reason this app exists
+*/
 class SrsLiveSource : public ISrsReloadHandler, public ISrsFrameTarget, public ISrsLiveSource
 {
 // clang-format off

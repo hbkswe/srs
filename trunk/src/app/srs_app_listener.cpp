@@ -301,13 +301,16 @@ srs_error_t SrsTcpListener::listen()
         return err;
 
     srs_close_stfd(lfd_);
+    // learn-henry : tcp socket - listener on ip:port
     if ((err = srs_tcp_listen(ip_, port_, &lfd_)) != srs_success) {
         return srs_error_wrap(err, "listen at %s:%d", ip_.c_str(), port_);
     }
 
+    // learn-henry : note - create a coroutine, handover the listener to the coroutine and the cycle() will be called from the coroutine internally (via interrupt/signal idk)
     srs_freep(trd_);
     trd_ = factory_->create_coroutine("tcp", this, _srs_context->get_id());
     if ((err = trd_->start()) != srs_success) {
+        // note-henry : the coroutine will run background
         return srs_error_wrap(err, "start coroutine");
     }
 
@@ -323,6 +326,7 @@ void SrsTcpListener::close()
     srs_close_stfd(lfd_);
 }
 
+// learn-henry : cycle - coroutine cycle()
 srs_error_t SrsTcpListener::cycle()
 {
     srs_error_t err = srs_success;
@@ -345,6 +349,7 @@ srs_error_t SrsTcpListener::do_cycle()
 {
     srs_error_t err = srs_success;
 
+    // note-henry : accept - where the listener accepts the new client
     srs_netfd_t fd = srs_accept(lfd_, NULL, NULL, SRS_UTIME_NO_TIMEOUT);
     if (fd == NULL) {
         return srs_error_new(ERROR_SOCKET_ACCEPT, "accept at fd=%d", srs_netfd_fileno(lfd_));
@@ -354,6 +359,7 @@ srs_error_t SrsTcpListener::do_cycle()
         return srs_error_wrap(err, "set closeexec");
     }
 
+    // learn-henry : note - listener does not know what connection to use, Server level knows, this handler_ is actually SrsServer, and it knows what conn to use
     if ((err = handler_->on_tcp_client(this, fd)) != srs_success) {
         return srs_error_wrap(err, "handle fd=%d", srs_netfd_fileno(fd));
     }

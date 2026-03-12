@@ -173,6 +173,7 @@ public:
     }
 };
 
+// learn-henry : note - boundary of the server
 // the socket provides TCP socket over st,
 // that is, the sync socket mechanism.
 class SrsStSocket : public ISrsProtocolReadWriter

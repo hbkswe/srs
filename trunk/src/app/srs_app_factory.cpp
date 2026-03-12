@@ -78,6 +78,7 @@ SrsPath *SrsAppFactory::create_path()
     return new SrsPath();
 }
 
+/* learn-henry : where Live source rtmp is created */
 SrsLiveSource *SrsAppFactory::create_live_source()
 {
     return new SrsLiveSource();

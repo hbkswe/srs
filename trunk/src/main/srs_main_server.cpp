@@ -466,6 +466,7 @@ srs_error_t run_srs_server()
     // For primordial thread, share the default cid.
     _srs_context->set_id(_srs_context->get_id());
 
+    // learn-henry : SrsServer - daemon level object created
     _srs_server = new SrsServer();
 
     // Do some system initialize.
