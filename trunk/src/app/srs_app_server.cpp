@@ -182,6 +182,7 @@ SrsServer::SrsServer()
 
     http_api_mux_ = new SrsHttpServeMux();
 
+    // learn-henry : SrsMultipleTcpListeners - listeners are created and assigned to listener (raw) pointer of SrsServer
     rtmp_listener_ = new SrsMultipleTcpListeners(this);
     rtmps_listener_ = new SrsMultipleTcpListeners(this);
     api_listener_ = new SrsMultipleTcpListeners(this);
@@ -494,6 +495,7 @@ srs_error_t SrsServer::run()
         return srs_error_wrap(err, "initialize signal");
     }
 
+    // learn-henry : bind port, start listener coroutine
     if ((err = listen()) != srs_success) {
         return srs_error_wrap(err, "listen");
     }
@@ -538,6 +540,7 @@ srs_error_t SrsServer::run()
     }
 #endif
 
+    // learn-henry : loop of main thread
     return cycle();
 }
 // LCOV_EXCL_STOP
@@ -581,6 +584,7 @@ srs_error_t SrsServer::listen()
 {
     srs_error_t err = srs_success;
 
+    // learn-henry : rtmp - get config from global config and start to listen on TCP
     // Create RTMP listeners.
     rtmp_listener_->add(config_->get_listens())->set_label("RTMP");
     if ((err = rtmp_listener_->listen()) != srs_success) {
@@ -917,6 +921,7 @@ srs_error_t SrsServer::cycle()
         return srs_error_wrap(err, "start inotify");
     }
 
+    // learn-henry : loop of main thread
     // Do server main cycle.
     if ((err = do_cycle()) != srs_success) {
         srs_error("server err %s", srs_error_desc(err).c_str());
@@ -1068,6 +1073,7 @@ srs_error_t SrsServer::do_cycle()
     // for asprocess.
     bool asprocess = config_->get_asprocess();
 
+    // learn-henry : main thread looping to check the overall status of the service
     while (true) {
         // asprocess check.
         if (asprocess && ::getppid() != ppid_) {
@@ -1571,9 +1577,34 @@ srs_error_t SrsServer::do_on_tcp_client(ISrsListener *listener, srs_netfd_t &stf
         }
     }
 
+     /*
+     learn-henry : CORE - dispatching the connection resource based on the type of listener
+       - server have listeners that have connection component
+       that have transport layer component to get raw byte data from
+       tcp connection object
+       that have tcp client object
+       that has behavior define by class reader/writer and hold io class object
+       that take care of socket api call to kernel
+    */
+    /*
+    learn-henry : detail
+      server dispatched the connection resource based on the type of listener
+      -> has-a SrsServer::do_on_tcp_client(listener,stfd)
+      that branches on which listener object (e.g. rtmp_listener_)
+      -> has-a newly created SrsRtmpConn
+      (mind: the listener only accepts and callbacks; the real conn object is owned/created here, not inside the listener)
+      -> has-a ISrsRtmpTransport / SrsRtmpTransport (RTMPS: SrsRtmpsTransport)
+      that wraps srs_netfd_t and exposes a SrsTcpConnection as the accepted server-side TCP socket (not an outbound "client" in naming)
+      -> has-a ISrsProtocolReadWriter behavior for raw bytes
+      -> has-a path through srs_netfd + state-threads (ST) down to kernel socket syscalls,
+      ** ^ upper layer - and above that byte stream is not yet RTMP semantics so SrsRtmpConn
+      -> has-a SrsRtmpServer + SrsProtocol for RTMP handshake + chunk/message decode-encode (recv_message / do_decode_message / send_and_free_message)
+      and the conn logic runs as a coroutine via SrsRtmpConn::cycle rather than a separate OS thread.
+    */
     // Create resource by normal listeners.
     if (!resource) {
         if (listener == rtmp_listener_) {
+            // learn-henry : note - connection-object is inited with the matching transport-layer object object inited and
             SrsRtmpTransport *transport = new SrsRtmpTransport(stfd2);
             SrsRtmpConn *conn = new SrsRtmpConn(transport, ip, port);
             conn->assemble();
